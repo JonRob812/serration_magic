@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "C:/JonRob/REPO/CNC/Serration Magic Page/Serration_magic_page.py", line 543, in <module>
+    vp_start_gui()
+  File "C:/JonRob/REPO/CNC/Serration Magic Page/Serration_magic_page.py", line 29, in vp_start_gui
+    top = app_window (root)
+  File "C:/JonRob/REPO/CNC/Serration Magic Page/Serration_magic_page.py", line 113, in __init__
+    self.choose_button.configure(command=Serration_magic_page_support.get_dir)
+AttributeError: module 'Serration_magic_page_support' has no attribute 'get_dir'

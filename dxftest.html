@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<!-- template file for dxfpp.py, just plain "str".format() substitution, no fancy template-engine -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>dxftest.dxf</title>
+<style>
+/* content of dxf2html.css */
+
+:root {
+    --pp-bg: #20324D; /* background */
+    --pp-bg-lt: #3F5577; /* lighter background */
+    --pp-tag-color: white; /* general test color */
+    --pp-ctrl: orange; /* control tag 0 */
+    --pp-group: #A0BFDE; /* group tag 100, 102, ... */
+    --pp-link: rgb(250, 195, 150); /* group tag 100, 102, ... */
+    --pp-link-hover: orange; /* group tag 100, 102, ... */
+}
+body {
+    font-family: "Open Sans", sans-serif;
+    width: 1100px;
+    margin-right: auto;
+    margin-left: auto;
+    color: var(--pp-tag-color);
+    background-color: lightgray;
+}
+
+.button-bar {
+    font-weight: bold;
+    padding: 5px;
+    color: darkblue;
+}
+
+a.link-button {
+    background-color: var(--pp-bg-lt);
+    color: white;
+    font-weight: bold;
+    padding: 0 10px 0 10px;
+    text-decoration: none;
+}
+
+a.link-button:link,
+a.link-button:visited,
+a.link-button:active,
+a.link-button:focus
+{
+    color: white;
+}
+
+a.link-button:hover {
+    color: var(--pp-link-hover);
+}
+
+/* section, table and entity names as link to the DXF reference
+*/
+
+a.dxf-ref-link {
+    font-weight: bold;
+    text-decoration: none;
+}
+
+a.dxf-ref-link:link,
+a.dxf-ref-link:visited,
+a.dxf-ref-link:active,
+a.dxf-ref-link:focus
+{
+    color: var(--pp-link);
+}
+
+a.dxf-ref-link:hover {
+    color: var(--pp-link-hover);
+}
+
+#section-links {
+    margin: 5px;
+}
+
+#dxf-filename {
+    background-color: var(--pp-bg);
+    font-size: xx-large;
+    font-weight: bold;
+    padding: 5px;
+}
+
+#dxf-file {
+}
+
+/* DXF sections
+*/
+
+.dxf-sections {
+}
+
+.dxf-section-name{
+    font-size: xx-large;
+    font-weight: bold;
+    padding: 5px;
+}
+
+.dxf-section {
+    background-color: var(--pp-bg);
+    padding: 5px;
+}
+
+/* DXF header
+*/
+
+.dxf-header {
+    background-color: var(--pp-bg-lt);
+    margin: 5px;
+    padding: 5px;
+}
+
+/* DXF entities
+*/
+.dxf-entities {
+}
+
+.dxf-entity-name{
+    font-size: large;
+    font-weight: bold;
+    padding: 5px;
+}
+
+.dxf-entity {
+    background-color: slategrey;
+    margin: 5px 0 5px 5px;
+}
+
+.dxf-blocks,
+.dxf-tables {
+}
+
+.dxf-block-name,
+.dxf-table-name {
+    font-size: x-large;
+    font-weight: bold;
+    padding: 5px;
+}
+
+.dxf-block,
+.dxf-table{
+    background-color: #4c8b8d;
+    margin: 5px 5px 0 5px;
+    padding: 5px 0 0 5px;
+}
+
+/* DXF tags and header vars
+*/
+.dxf-tags {
+    background-color: var(--pp-bg-lt);
+    padding: 5px;
+    color: var(--pp-tag-color)
+}
+
+.dxf-tag,
+.hdr-var {
+    font-family: "Source Code Pro", monospace;
+    font-size: medium;
+}
+
+.tag-code,
+.var-type {
+}
+
+.tag-value {
+}
+
+/* DXF handles and pointers as links
+*/
+.tag-link {
+    font-weight: bold;
+    text-decoration: none;
+}
+.tag-link:link,
+.tag-link:visited,
+.tag-link:active,
+.tag-link:focus
+{
+    color: var(--pp-link);
+}
+.tag-link:hover {
+    color: var(--pp-link-hover);
+}
+
+.tag-group-marker {
+    color: var(--pp-group);
+}
+
+</style>
+<script>
+/* content of dxf2html.js */
+
+TOOLTIPS= [];
+
+function setUp(){
+    initTooltips();
+    setDXFTagTooltips();
+}
+
+function initTooltips(){
+    var data = [
+        [0, 0, "Text string indicating the entity type (fixed)"],
+        [1, 1, "Primary text value for an entity"],
+        [2, 2, "Name (attribute tag, block name, and so on)"],
+        [3, 4, "Other text or name values"],
+        [5, 5, "Entity handle; text string of up to 16 hexadecimal digits (fixed)"],
+        [6, 6, "Linetype name (fixed)"],
+        [7, 7, "Text style name (fixed)"],
+        [8, 8, "Layer name (fixed)"],
+        [9, 9, "DXF: variable name identifier (used only in HEADER section of the DXF file)"],
+        [10, 10, "Primary point; this is the start point of a line or text entity, center of a circle, and so on " +
+          "DXF: X value of the primary point (followed by Y and Z value codes 20 and 30) " +
+          "APP: 3D point (list of three reals)"],
+        [11, 18, "Other points " +
+          "DXF: X value of other points (followed by Y value codes 21-28 and Z value codes 31-38) " +
+          "APP: 3D point (list of three reals)"],
+        [20, 20, "DXF: Y value of the primary point"],
+        [30, 30, "DXF: Z value of the primary point"],
+        [21, 28, "DXF: Y values of other points"],
+        [31, 37, "DXF: Z values of other points"],
+        [38, 38, "DXF: entity's elevation if nonzero"],
+        [39, 39, "Entity's thickness if nonzero (fixed)"],
+        [40, 47, "Double-precision floating-point values (text height, scale factors, and so on)"],
+        [48, 48, "Linetype scale; default value is defined for all entity types"],
+        [49, 49, "Multiple 49 groups may appear in one entity for variable-length tables (such as " +
+          "the dash lengths in the LTYPE table). A 7x group always appears before the first 49 group " +
+          "to specify the table length"],
+        [50, 58, "Angles (output in degrees to DXF files and radians through AutoLISP and ObjectARX applications)"],
+        [60, 60, "Entity visibility; absence or 0 indicates visibility; 1 indicates invisibility"],
+        [62, 62, "Color number (fixed)"],
+        [66, 66, "Entities follow flag (fixed)"],
+        [67, 67, "0 for model space or 1 for paper space (fixed)"],
+        [68, 68, "APP: identifies whether viewport is on but fully off screen; is not active or is off"],
+        [69, 69, "APP: viewport identification number"],
+        [70, 79, "Integer values, such as repeat counts, flag bits, or modes"],
+        [90, 99, "32-bit integer values"],
+        [100, 100, "Subclass data marker (with derived class name as a string). Required for all objects and entity " +
+          "classes that are derived from another concrete class. The subclass data marker segregates data " +
+          "defined by different classes in the inheritance chain for the same object. " +
+          "This is in addition to the requirement for DXF names for each distinct concrete class derived " +
+          "from ObjectARX (see Subclass Markers)"],
+        [101, 101, "Embedded object marker"],
+        [102, 102, "Control string, followed by '{arbitrary name' or '}'. " +
+          "Similar to the xdata 1002 group code, except that when the string begins with '{', " +
+          "it can be followed by an arbitrary string whose interpretation is up to the application. " +
+          "The only other control string allowed is &quot;}&quot; as a group terminator. " +
+          "AutoCAD does not interpret these strings except during drawing audit operations. " +
+          "They are for application use."],
+        [105, 105, "Object handle for DIMVAR symbol table entry"],
+        [110, 110, "UCS origin (appears only if code 72 is set to 1); DXF: X value; APP: 3D point"],
+        [111, 111, "UCS Y-axis (appears only if code 72 is set to 1); DXF: Y value; APP: 3D vector"],
+        [112, 112, "UCS Z-axis (appears only if code 72 is set to 1); DXF: Z value; APP: 3D vector"],
+        [120, 122, "DXF: Y value of UCS origin, UCS X-axis, and UCS Y-axis"],
+        [130, 132, "DXF: Z value of UCS origin, UCS X-axis, and UCS Y-axis"],
+        [140, 149, "Double-precision floating-point values (points, elevation, and DIMSTYLE settings, for example)"],
+        [170, 179, "16-bit integer values, such as flag bits representing DIMSTYLE settings"],
+        [210, 210, "Extrusion direction (fixed) " +
+          "DXF: X value of extrusion direction " +
+          "APP: 3D extrusion direction vector"],
+        [220, 220, "DXF: Y value of the extrusion direction"],
+        [230, 230, "DXF: Z value of the extrusion direction"],
+        [270, 279, "16-bit integer values"],
+        [280, 289, "16-bit integer value"],
+        [290, 299, "Boolean flag value; 0 = False; 1 = True"],
+        [300, 309, "Arbitrary text strings"],
+        [310, 319, "Arbitrary binary chunks with same representation and limits " +
+          "as 1004 group codes: hexadecimal strings of up to 254 characters " +
+          "represent data chunks of up to 127 bytes"],
+        [320, 329, "Arbitrary object handles; handle values that are taken 'as is'. " +
+          "They are not translated during INSERT and XREF operations"],
+        [330, 339, "Soft-pointer handle; arbitrary soft pointers to other objects " +
+          "within same DXF file or drawing. Translated during INSERT and XREF operations"],
+        [340, 349, "Hard-pointer handle; arbitrary hard pointers to other objects within " +
+          "same DXF file or drawing. Translated during INSERT and XREF operations"],
+        [350, 359, "Soft-owner handle; arbitrary soft ownership links to other objects " +
+          "within same DXF file or drawing. Translated during INSERT and XREF operations"],
+        [360, 369, "Hard-owner handle; arbitrary hard ownership links to other objects within " +
+          "same DXF file or drawing. Translated during INSERT and XREF operations"],
+        [370, 379, "Lineweight enum value (AcDb::LineWeight). Stored and moved around as a 16-bit integer. " +
+          "Custom non-entity objects may use the full range, but entity classes only use 371-379 DXF " +
+          "group codes in their representation, because AutoCAD and AutoLISP both always assume a 370 " +
+          "group code is the entity's lineweight. This allows 370 to behave like other 'common' entity fields"],
+        [380, 389, "PlotStyleName type enum (AcDb::PlotStyleNameType). Stored and moved around as a 16-bit integer. " +
+          "Custom non-entity objects may use the full range, but entity classes only use 381-389 " +
+          "DXF group codes in their representation, for the same reason as the lineweight range"],
+        [390, 399, "String representing handle value of the PlotStyleName object, basically a hard pointer, but has " +
+          "a different range to make backward compatibility easier to deal with. Stored and moved around " +
+          "as an object ID (a handle in DXF files) and a special type in AutoLISP. Custom non-entity objects " +
+          "may use the full range, but entity classes only use 391-399 DXF group codes in their representation, " +
+          "for the same reason as the lineweight range"],
+        [400, 409, "16-bit integers"],
+        [410, 419, "String"],
+        [420, 427, "32-bit integer value. When used with True Color; a 32-bit integer representing a 24-bit color value. " +
+          "The high-order byte (8 bits) is 0, the low-order byte an unsigned char holding the Blue value (0-255), " +
+          "then the Green value, and the next-to-high order byte is the Red Value. Converting this integer value to " +
+          "hexadecimal yields the following bit mask: 0x00RRGGBB. " +
+          "For example, a true color with Red==200, Green==100 and Blue==50 is 0x00C86432, and in DXF, in decimal, 13132850"],
+        [430, 437, "String; when used for True Color, a string representing the name of the color"],
+        [440, 447, "32-bit integer value. When used for True Color, the transparency value"],
+        [450, 459, "Long"],
+        [460, 469, "Double-precision floating-point value"],
+        [470, 479, "String"],
+        [480, 481, "Hard-pointer handle; arbitrary hard pointers to other objects within same DXF file or drawing. " +
+          "Translated during INSERT and XREF operations"],
+        [999, 999, "DXF: The 999 group code indicates that the line following it is a comment string. SAVEAS does " +
+          "not include such groups in a DXF output file, but OPEN honors them and ignores the comments. " +
+          "You can use the 999 group to include comments in a DXF file that you have edited"],
+        [1000, 1000, "ASCII string (up to 255 bytes long) in extended data"],
+        [1001, 1001, "Registered application name (ASCII string up to 31 bytes long) for extended data"],
+        [1002, 1002, "Extended data control string ('{' or '}')"],
+        [1003, 1003, "Extended data layer name"],
+        [1004, 1004, "Chunk of bytes (up to 127 bytes long) in extended data"],
+        [1005, 1005, "Entity handle in extended data; text string of up to 16 hexadecimal digits"],
+        [1010, 1010, "A point in extended data; DXF: X value (followed by 1020 and 1030 groups); APP: 3D point"],
+        [1020, 1020, "DXF: Y values of a point"],
+        [1030, 1030, "DXF: Z values of a point"],
+        [1011, 1011, "A 3D world space position in extended data \n" +
+            "DXF: X value (followed by 1021 and 1031 groups) \n" +
+            "APP: 3D point"],
+        [1021, 1021, "DXF: Y value of a world space position"],
+        [1031, 1031, "DXF: Z value of a world space position"],
+        [1012, 1012, "A 3D world space displacement in extended data \n" +
+            "DXF: X value (followed by 1022 and 1032 groups) \n" +
+            "APP: 3D vector"],
+        [1022, 1022, "DXF: Y value of a world space displacement"],
+        [1032, 1032, "DXF: Z value of a world space displacement"],
+        [1013, 1013, "A 3D world space direction in extended data \n" +
+          "DXF: X value (followed by 1022 and 1032 groups) \n" +
+          "APP: 3D vector"],
+        [1023, 1023, "DXF: Y value of a world space direction"],
+        [1033, 1033, "DXF: Z value of a world space direction"],
+        [1040, 1040, "Extended data double-precision floating-point value"],
+        [1041, 1041, "Extended data distance value"],
+        [1042, 1042, "Extended data scale factor"],
+        [1070, 1070, "Extended data 16-bit signed integer"],
+        [1071, 1071, "Extended data 32-bit signed long"]
+    ];
+    var startIndex, endIndex, text;
+    for (var i=0; i<data.length; i++){
+        var row = data[i];
+        startIndex = row[0];
+        endIndex = row[1];
+        text = row[2];
+        for(var j=startIndex; j<=endIndex; j++){
+            TOOLTIPS[j] = text;
+        }
+    }
+}
+
+function getCode(node){
+    return parseInt(node.firstChild.textContent);
+}
+
+function setDXFTagTooltips() {
+    var tags = document.getElementsByClassName("dxf-tag");
+    var tag, code;
+    for (var i = 0; i < tags.length; i++) {
+        tag = tags[i];
+        code = getCode(tag);
+        tag.title = TOOLTIPS[code];
+    }
+}
+
+</script>
+</head>
+<body onload="setUp()">
+<div id="general-links" class="button-bar">
+    <a class="link-button" target="_blank" href="http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-235B22E0-A567-4CF6-92D3-38A2306D73F3">DXF Reference</a>
+    <a class="link-button" target="_blank" href="http://www.autodesk.com/">Autodesk®</a>
+    <a class="link-button" target="_blank" href="http://usa.autodesk.com/adsk/servlet/pc/index?id=6703438&siteID=123112"
+       title="Free DXF/DWG Viewer from Autodesk®.&#13;DWG TrueView is built on the same viewing engine as AutoCAD®.">DWG TrueView</a>
+    <a class="link-button" target="_blank" href="http://autodesk.blogs.com/between_the_lines/autocad-release-history.html">AutoCAD® Release History</a>
+</div>
+<div id="dxf-filename">dxftest.dxf</div>
+<div id="section-links">
+<div class="button-bar"><a class="link-button" href="#HEADER">HEADER</a> 
+<a class="link-button" href="#TABLES">TABLES</a> 
+<a class="link-button" href="#BLOCKS">BLOCKS</a> 
+<a class="link-button" href="#ENTITIES">ENTITIES</a> 
+<a class="link-button" href="#OBJECTS">OBJECTS</a></div>
+
+</div>
+<div id="dxf-file">
+<div class="dxf-sections">
+<div id="HEADER" class="dxf-section"><div class="dxf-section-name">SECTION: <a class="dxf-ref-link" href=http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-EA9CDD11-19D1-4EBC-9F56-979ACF679E3C target="_blank" title="Link to DXF-Reference provided by Autodesk®.">HEADER</a></div>
+<div class="button-bar"><a class="link-button" href="#HEADER">previous</a> <a class="link-button" href="#TABLES">next</a> <a class="link-button" href="#section-links">top<a/></div>
+<div id="dxf-header" class="dxf-header">
+<div class="dxf-tags">
+<div class="dxf-tag" ><span class="tag-code">9</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">$INSUNITS</span></div>
+<div class="dxf-tag" ><span class="tag-code">70</span> <span class="var-type">&lt;int&gt;</span> <span class="tag-value">1, b00000001</span></div>
+<div class="dxf-tag" ><span class="tag-code">9</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">$ACADVER</span></div>
+<div class="dxf-tag" ><span class="tag-code">1</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">AC1014</span></div>
+<div class="dxf-tag" ><span class="tag-code">9</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">$HANDSEED</span></div>
+<div class="dxf-tag"><span id="FFFF" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#FFFF</span></div>
+</div>
+</div>
+</div>
+
+<div id="TABLES" class="dxf-section"><div class="dxf-section-name">SECTION: <a class="dxf-ref-link" href=http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-A9FD9590-C97B-4E41-9F26-BD82C34A4F9F target="_blank" title="Link to DXF-Reference provided by Autodesk®.">TABLES</a></div>
+<div class="button-bar"><a class="link-button" href="#HEADER">previous</a> <a class="link-button" href="#BLOCKS">next</a> <a class="link-button" href="#section-links">top<a/></div>
+<div id="dxf-tables" class="dxf-tables"><div id="VPORT-table" class="dxf-table">
+<div class="dxf-table-name"><a class="dxf-ref-link" href=http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-235B22E0-A567-4CF6-92D3-38A2306D73F3 target="_blank" title="Link to DXF-Reference provided by Autodesk®.">VPORT</a></div>
+<div class="button-bar"><a class="link-button" href="#VPORT-table">VPORT</a>
+<a class="link-button" href="#LTYPE-table">LTYPE</a>
+<a class="link-button" href="#LAYER-table">LAYER</a>
+<a class="link-button" href="#STYLE-table">STYLE</a>
+<a class="link-button" href="#VIEW-table">VIEW</a>
+<a class="link-button" href="#UCS-table">UCS</a>
+<a class="link-button" href="#APPID-table">APPID</a>
+<a class="link-button" href="#DIMSTYLE-table">DIMSTYLE</a>
+<a class="link-button" href="#BLOCK_RECORD-table">BLOCK_RECORD</a></div>
+<div class="dxf-entity"><div class="dxf-entity-name">TABLE HEADER</div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">TABLE</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">2</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">VPORT</span></div>
+<div class="dxf-tag"><span id="8" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#8</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbSymbolTable</span></div></div>
+</div>
+</div>
+<div class="dxf-entities">
+<div class="dxf-entity"><div class="dxf-entity-name">ENDTAB</div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">ENDTAB</span></div></div>
+</div>
+</div>
+</div>
+</div>
+<div id="LTYPE-table" class="dxf-table">
+<div class="dxf-table-name"><a class="dxf-ref-link" href=http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-235B22E0-A567-4CF6-92D3-38A2306D73F3 target="_blank" title="Link to DXF-Reference provided by Autodesk®.">LTYPE</a></div>
+<div class="button-bar"><a class="link-button" href="#VPORT-table">VPORT</a>
+<a class="link-button" href="#LTYPE-table">LTYPE</a>
+<a class="link-button" href="#LAYER-table">LAYER</a>
+<a class="link-button" href="#STYLE-table">STYLE</a>
+<a class="link-button" href="#VIEW-table">VIEW</a>
+<a class="link-button" href="#UCS-table">UCS</a>
+<a class="link-button" href="#APPID-table">APPID</a>
+<a class="link-button" href="#DIMSTYLE-table">DIMSTYLE</a>
+<a class="link-button" href="#BLOCK_RECORD-table">BLOCK_RECORD</a></div>
+<div class="dxf-entity"><div class="dxf-entity-name">TABLE HEADER</div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">TABLE</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">2</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">LTYPE</span></div>
+<div class="dxf-tag"><span id="5" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#5</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbSymbolTable</span></div></div>
+</div>
+</div>
+<div class="dxf-entities">
+<div class="dxf-entity"><div class="dxf-entity-name">LTYPE</div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">LTYPE</span></div></div>
+<div class="dxf-tag"><span id="14" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#14</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbSymbolTableRecord</span></div></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbLinetypeTableRecord</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">2</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">BYBLOCK</span></div>
+<div class="dxf-tag" ><span class="tag-code">70</span> <span class="var-type">&lt;int&gt;</span> <span class="tag-value">0, b00000000</span></div>
+</div>
+</div>
+<div class="dxf-entity"><div class="dxf-entity-name">LTYPE</div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">LTYPE</span></div></div>
+<div class="dxf-tag"><span id="15" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#15</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbSymbolTableRecord</span></div></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbLinetypeTableRecord</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">2</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">BYLAYER</span></div>
+<div class="dxf-tag" ><span class="tag-code">70</span> <span class="var-type">&lt;int&gt;</span> <span class="tag-value">0, b00000000</span></div>
+</div>
+</div>
+<div class="dxf-entity"><div class="dxf-entity-name">ENDTAB</div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">ENDTAB</span></div></div>
+</div>
+</div>
+</div>
+</div>
+<div id="LAYER-table" class="dxf-table">
+<div class="dxf-table-name"><a class="dxf-ref-link" href=http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-235B22E0-A567-4CF6-92D3-38A2306D73F3 target="_blank" title="Link to DXF-Reference provided by Autodesk®.">LAYER</a></div>
+<div class="button-bar"><a class="link-button" href="#VPORT-table">VPORT</a>
+<a class="link-button" href="#LTYPE-table">LTYPE</a>
+<a class="link-button" href="#LAYER-table">LAYER</a>
+<a class="link-button" href="#STYLE-table">STYLE</a>
+<a class="link-button" href="#VIEW-table">VIEW</a>
+<a class="link-button" href="#UCS-table">UCS</a>
+<a class="link-button" href="#APPID-table">APPID</a>
+<a class="link-button" href="#DIMSTYLE-table">DIMSTYLE</a>
+<a class="link-button" href="#BLOCK_RECORD-table">BLOCK_RECORD</a></div>
+<div class="dxf-entity"><div class="dxf-entity-name">TABLE HEADER</div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">TABLE</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">2</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">LAYER</span></div>
+<div class="dxf-tag"><span id="2" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#2</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbSymbolTable</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">70</span> <span class="var-type">&lt;int&gt;</span> <span class="tag-value">2, b00000010</span></div>
+</div>
+</div>
+<div class="dxf-entities">
+<div class="dxf-entity"><div class="dxf-entity-name">LAYER</div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">LAYER</span></div></div>
+<div class="dxf-tag"><span id="50" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#50</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbSymbolTableRecord</span></div></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbLayerTableRecord</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">2</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">0</span></div>
+<div class="dxf-tag" ><span class="tag-code">70</span> <span class="var-type">&lt;int&gt;</span> <span class="tag-value">0, b00000000</span></div>
+<div class="dxf-tag" ><span class="tag-code">6</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">CONTINUOUS</span></div>
+</div>
+</div>
+<div class="dxf-entity"><div class="dxf-entity-name">ENDTAB</div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">ENDTAB</span></div></div>
+</div>
+</div>
+</div>
+</div>
+<div id="STYLE-table" class="dxf-table">
+<div class="dxf-table-name"><a class="dxf-ref-link" href=http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-235B22E0-A567-4CF6-92D3-38A2306D73F3 target="_blank" title="Link to DXF-Reference provided by Autodesk®.">STYLE</a></div>
+<div class="button-bar"><a class="link-button" href="#VPORT-table">VPORT</a>
+<a class="link-button" href="#LTYPE-table">LTYPE</a>
+<a class="link-button" href="#LAYER-table">LAYER</a>
+<a class="link-button" href="#STYLE-table">STYLE</a>
+<a class="link-button" href="#VIEW-table">VIEW</a>
+<a class="link-button" href="#UCS-table">UCS</a>
+<a class="link-button" href="#APPID-table">APPID</a>
+<a class="link-button" href="#DIMSTYLE-table">DIMSTYLE</a>
+<a class="link-button" href="#BLOCK_RECORD-table">BLOCK_RECORD</a></div>
+<div class="dxf-entity"><div class="dxf-entity-name">TABLE HEADER</div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">TABLE</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">2</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">STYLE</span></div>
+<div class="dxf-tag"><span id="3" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#3</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbSymbolTable</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">70</span> <span class="var-type">&lt;int&gt;</span> <span class="tag-value">1, b00000001</span></div>
+</div>
+</div>
+<div class="dxf-entities">
+<div class="dxf-entity"><div class="dxf-entity-name">STYLE</div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">STYLE</span></div></div>
+<div class="dxf-tag"><span id="11" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#11</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbSymbolTableRecord</span></div></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbTextStyleTableRecord</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">2</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">STANDARD</span></div>
+<div class="dxf-tag" ><span class="tag-code">70</span> <span class="var-type">&lt;int&gt;</span> <span class="tag-value">0, b00000000</span></div>
+</div>
+</div>
+<div class="dxf-entity"><div class="dxf-entity-name">ENDTAB</div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">ENDTAB</span></div></div>
+</div>
+</div>
+</div>
+</div>
+<div id="VIEW-table" class="dxf-table">
+<div class="dxf-table-name"><a class="dxf-ref-link" href=http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-235B22E0-A567-4CF6-92D3-38A2306D73F3 target="_blank" title="Link to DXF-Reference provided by Autodesk®.">VIEW</a></div>
+<div class="button-bar"><a class="link-button" href="#VPORT-table">VPORT</a>
+<a class="link-button" href="#LTYPE-table">LTYPE</a>
+<a class="link-button" href="#LAYER-table">LAYER</a>
+<a class="link-button" href="#STYLE-table">STYLE</a>
+<a class="link-button" href="#VIEW-table">VIEW</a>
+<a class="link-button" href="#UCS-table">UCS</a>
+<a class="link-button" href="#APPID-table">APPID</a>
+<a class="link-button" href="#DIMSTYLE-table">DIMSTYLE</a>
+<a class="link-button" href="#BLOCK_RECORD-table">BLOCK_RECORD</a></div>
+<div class="dxf-entity"><div class="dxf-entity-name">TABLE HEADER</div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">TABLE</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">2</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">VIEW</span></div>
+<div class="dxf-tag"><span id="6" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#6</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbSymbolTable</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">70</span> <span class="var-type">&lt;int&gt;</span> <span class="tag-value">0, b00000000</span></div>
+</div>
+</div>
+<div class="dxf-entities">
+<div class="dxf-entity"><div class="dxf-entity-name">ENDTAB</div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">ENDTAB</span></div></div>
+</div>
+</div>
+</div>
+</div>
+<div id="UCS-table" class="dxf-table">
+<div class="dxf-table-name"><a class="dxf-ref-link" href=http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-1906E8A7-3393-4BF9-BD27-F9AE4352FB8B target="_blank" title="Link to DXF-Reference provided by Autodesk®.">UCS</a></div>
+<div class="button-bar"><a class="link-button" href="#VPORT-table">VPORT</a>
+<a class="link-button" href="#LTYPE-table">LTYPE</a>
+<a class="link-button" href="#LAYER-table">LAYER</a>
+<a class="link-button" href="#STYLE-table">STYLE</a>
+<a class="link-button" href="#VIEW-table">VIEW</a>
+<a class="link-button" href="#UCS-table">UCS</a>
+<a class="link-button" href="#APPID-table">APPID</a>
+<a class="link-button" href="#DIMSTYLE-table">DIMSTYLE</a>
+<a class="link-button" href="#BLOCK_RECORD-table">BLOCK_RECORD</a></div>
+<div class="dxf-entity"><div class="dxf-entity-name">TABLE HEADER</div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">TABLE</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">2</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">UCS</span></div>
+<div class="dxf-tag"><span id="7" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#7</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbSymbolTable</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">70</span> <span class="var-type">&lt;int&gt;</span> <span class="tag-value">0, b00000000</span></div>
+</div>
+</div>
+<div class="dxf-entities">
+<div class="dxf-entity"><div class="dxf-entity-name">ENDTAB</div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">ENDTAB</span></div></div>
+</div>
+</div>
+</div>
+</div>
+<div id="APPID-table" class="dxf-table">
+<div class="dxf-table-name"><a class="dxf-ref-link" href=http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-235B22E0-A567-4CF6-92D3-38A2306D73F3 target="_blank" title="Link to DXF-Reference provided by Autodesk®.">APPID</a></div>
+<div class="button-bar"><a class="link-button" href="#VPORT-table">VPORT</a>
+<a class="link-button" href="#LTYPE-table">LTYPE</a>
+<a class="link-button" href="#LAYER-table">LAYER</a>
+<a class="link-button" href="#STYLE-table">STYLE</a>
+<a class="link-button" href="#VIEW-table">VIEW</a>
+<a class="link-button" href="#UCS-table">UCS</a>
+<a class="link-button" href="#APPID-table">APPID</a>
+<a class="link-button" href="#DIMSTYLE-table">DIMSTYLE</a>
+<a class="link-button" href="#BLOCK_RECORD-table">BLOCK_RECORD</a></div>
+<div class="dxf-entity"><div class="dxf-entity-name">TABLE HEADER</div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">TABLE</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">2</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">APPID</span></div>
+<div class="dxf-tag"><span id="9" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#9</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbSymbolTable</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">70</span> <span class="var-type">&lt;int&gt;</span> <span class="tag-value">2, b00000010</span></div>
+</div>
+</div>
+<div class="dxf-entities">
+<div class="dxf-entity"><div class="dxf-entity-name">APPID</div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">APPID</span></div></div>
+<div class="dxf-tag"><span id="12" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#12</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbSymbolTableRecord</span></div></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbRegAppTableRecord</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">2</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">ACAD</span></div>
+<div class="dxf-tag" ><span class="tag-code">70</span> <span class="var-type">&lt;int&gt;</span> <span class="tag-value">0, b00000000</span></div>
+</div>
+</div>
+<div class="dxf-entity"><div class="dxf-entity-name">ENDTAB</div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">ENDTAB</span></div></div>
+</div>
+</div>
+</div>
+</div>
+<div id="DIMSTYLE-table" class="dxf-table">
+<div class="dxf-table-name"><a class="dxf-ref-link" href=http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-235B22E0-A567-4CF6-92D3-38A2306D73F3 target="_blank" title="Link to DXF-Reference provided by Autodesk®.">DIMSTYLE</a></div>
+<div class="button-bar"><a class="link-button" href="#VPORT-table">VPORT</a>
+<a class="link-button" href="#LTYPE-table">LTYPE</a>
+<a class="link-button" href="#LAYER-table">LAYER</a>
+<a class="link-button" href="#STYLE-table">STYLE</a>
+<a class="link-button" href="#VIEW-table">VIEW</a>
+<a class="link-button" href="#UCS-table">UCS</a>
+<a class="link-button" href="#APPID-table">APPID</a>
+<a class="link-button" href="#DIMSTYLE-table">DIMSTYLE</a>
+<a class="link-button" href="#BLOCK_RECORD-table">BLOCK_RECORD</a></div>
+<div class="dxf-entity"><div class="dxf-entity-name">TABLE HEADER</div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">TABLE</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">2</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">DIMSTYLE</span></div>
+<div class="dxf-tag"><span id="A" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#A</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbSymbolTable</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">70</span> <span class="var-type">&lt;int&gt;</span> <span class="tag-value">1, b00000001</span></div>
+</div>
+</div>
+<div class="dxf-entities">
+<div class="dxf-entity"><div class="dxf-entity-name">ENDTAB</div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">ENDTAB</span></div></div>
+</div>
+</div>
+</div>
+</div>
+<div id="BLOCK_RECORD-table" class="dxf-table">
+<div class="dxf-table-name"><a class="dxf-ref-link" href=http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-235B22E0-A567-4CF6-92D3-38A2306D73F3 target="_blank" title="Link to DXF-Reference provided by Autodesk®.">BLOCK_RECORD</a></div>
+<div class="button-bar"><a class="link-button" href="#VPORT-table">VPORT</a>
+<a class="link-button" href="#LTYPE-table">LTYPE</a>
+<a class="link-button" href="#LAYER-table">LAYER</a>
+<a class="link-button" href="#STYLE-table">STYLE</a>
+<a class="link-button" href="#VIEW-table">VIEW</a>
+<a class="link-button" href="#UCS-table">UCS</a>
+<a class="link-button" href="#APPID-table">APPID</a>
+<a class="link-button" href="#DIMSTYLE-table">DIMSTYLE</a>
+<a class="link-button" href="#BLOCK_RECORD-table">BLOCK_RECORD</a></div>
+<div class="dxf-entity"><div class="dxf-entity-name">TABLE HEADER</div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">TABLE</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">2</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">BLOCK_RECORD</span></div>
+<div class="dxf-tag"><span id="1" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#1</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbSymbolTable</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">70</span> <span class="var-type">&lt;int&gt;</span> <span class="tag-value">1, b00000001</span></div>
+</div>
+</div>
+<div class="dxf-entities">
+<div class="dxf-entity"><div class="dxf-entity-name">BLOCK_RECORD</div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">BLOCK_RECORD</span></div></div>
+<div class="dxf-tag"><span id="1F" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#1F</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbSymbolTableRecord</span></div></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbBlockTableRecord</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">2</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">*MODEL_SPACE</span></div>
+</div>
+</div>
+<div class="dxf-entity"><div class="dxf-entity-name">BLOCK_RECORD</div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">BLOCK_RECORD</span></div></div>
+<div class="dxf-tag"><span id="1B" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#1B</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbSymbolTableRecord</span></div></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbBlockTableRecord</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">2</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">*PAPER_SPACE</span></div>
+</div>
+</div>
+<div class="dxf-entity"><div class="dxf-entity-name">ENDTAB</div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">ENDTAB</span></div></div>
+</div>
+</div>
+</div>
+</div></div>
+</div>
+
+<div id="BLOCKS" class="dxf-section"><div class="dxf-section-name">SECTION: <a class="dxf-ref-link" href=http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-1D14A213-5E4D-4EA6-A6B5-8709EB925D01 target="_blank" title="Link to DXF-Reference provided by Autodesk®.">BLOCKS</a></div>
+<div class="button-bar"><a class="link-button" href="#TABLES">previous</a> <a class="link-button" href="#ENTITIES">next</a> <a class="link-button" href="#section-links">top<a/></div>
+<div id="dxf-blocks" class="dxf-blocks">
+<div class="dxf-block">
+<div class="dxf-block-name">*MODEL_SPACE</div>
+<div class="dxf-entity"><div class="dxf-entity-name"><a class="dxf-ref-link" href=http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-66D32572-005A-4E23-8B8B-8726E8C14302 target="_blank" title="Link to DXF-Reference provided by Autodesk®.">BLOCK</a></div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">BLOCK</span></div></div>
+<div class="dxf-tag"><span id="20" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#20</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbEntity</span></div></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbBlockBegin</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">2</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">*MODEL_SPACE</span></div>
+</div>
+</div>
+
+<div class="dxf-entity"><div class="dxf-entity-name"><a class="dxf-ref-link" href=http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-27F7CC8A-E340-4C7F-A77F-5AF139AD502D target="_blank" title="Link to DXF-Reference provided by Autodesk®.">ENDBLK</a></div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">ENDBLK</span></div></div>
+<div class="dxf-tag"><span id="21" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#21</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbEntity</span></div></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbBlockEnd</span></div></div>
+</div>
+</div>
+</div>
+<div class="dxf-block">
+<div class="dxf-block-name">*PAPER_SPACE</div>
+<div class="dxf-entity"><div class="dxf-entity-name"><a class="dxf-ref-link" href=http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-66D32572-005A-4E23-8B8B-8726E8C14302 target="_blank" title="Link to DXF-Reference provided by Autodesk®.">BLOCK</a></div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">BLOCK</span></div></div>
+<div class="dxf-tag"><span id="1C" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#1C</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbEntity</span></div></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbBlockBegin</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">2</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">*PAPER_SPACE</span></div>
+</div>
+</div>
+
+<div class="dxf-entity"><div class="dxf-entity-name"><a class="dxf-ref-link" href=http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-27F7CC8A-E340-4C7F-A77F-5AF139AD502D target="_blank" title="Link to DXF-Reference provided by Autodesk®.">ENDBLK</a></div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">ENDBLK</span></div></div>
+<div class="dxf-tag"><span id="1D" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#1D</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbEntity</span></div></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbBlockEnd</span></div></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div id="ENTITIES" class="dxf-section"><div class="dxf-section-name">SECTION: <a class="dxf-ref-link" href=http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-7D07C886-FD1D-4A0C-A7AB-B4D21F18E484 target="_blank" title="Link to DXF-Reference provided by Autodesk®.">ENTITIES</a></div>
+<div class="button-bar"><a class="link-button" href="#BLOCKS">previous</a> <a class="link-button" href="#OBJECTS">next</a> <a class="link-button" href="#section-links">top<a/></div>
+<div class="dxf-entities">
+<div class="dxf-entity"><div class="dxf-entity-name"><a class="dxf-ref-link" href=http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-8663262B-222C-414D-B133-4A8506A27C18 target="_blank" title="Link to DXF-Reference provided by Autodesk®.">CIRCLE</a></div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">CIRCLE</span></div></div>
+<div class="dxf-tag"><span id="100" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#100</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbEntity</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">8</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">0</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbCircle</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">10</span> <span class="var-type">&lt;point&gt;</span> <span class="tag-value">(0.0, 0.0, 0.0)</span></div>
+<div class="dxf-tag" ><span class="tag-code">40</span> <span class="var-type">&lt;float&gt;</span> <span class="tag-value">4.999999999999999</span></div>
+<div class="dxf-tag" ><span class="tag-code">210</span> <span class="var-type">&lt;point&gt;</span> <span class="tag-value">(0.0, 0.0, 1.0)</span></div>
+</div>
+</div>
+<div class="dxf-entity"><div class="dxf-entity-name"><a class="dxf-ref-link" href=http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-748FC305-F3F2-4F74-825A-61F04D757A50 target="_blank" title="Link to DXF-Reference provided by Autodesk®.">LWPOLYLINE</a></div>
+ <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">LWPOLYLINE</span></div></div>
+<div class="dxf-tag"><span id="101" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#101</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbEntity</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">8</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">0</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbPolyline</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">90</span> <span class="var-type">&lt;int&gt;</span> <span class="tag-value">4, b00000100</span></div>
+<div class="dxf-tag" ><span class="tag-code">70</span> <span class="var-type">&lt;int&gt;</span> <span class="tag-value">1, b00000001</span></div>
+<div class="dxf-tag" ><span class="tag-code">43</span> <span class="var-type">&lt;float&gt;</span> <span class="tag-value">0.0</span></div>
+<div class="dxf-tag" ><span class="tag-code">10</span> <span class="var-type">&lt;point&gt;</span> <span class="tag-value">(1.9999999999999998, 0.0)</span></div>
+<div class="dxf-tag" ><span class="tag-code">10</span> <span class="var-type">&lt;point&gt;</span> <span class="tag-value">(0.0, 0.0)</span></div>
+<div class="dxf-tag" ><span class="tag-code">10</span> <span class="var-type">&lt;point&gt;</span> <span class="tag-value">(0.0, -3.0)</span></div>
+<div class="dxf-tag" ><span class="tag-code">10</span> <span class="var-type">&lt;point&gt;</span> <span class="tag-value">(1.9999999999999998, -3.0)</span></div>
+</div>
+</div>
+</div>
+</div>
+
+<div id="OBJECTS" class="dxf-section"><div class="dxf-section-name">SECTION: <a class="dxf-ref-link" href=http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-2D71EE99-A6BE-4060-9B43-808CF1E201C6 target="_blank" title="Link to DXF-Reference provided by Autodesk®.">OBJECTS</a></div>
+<div class="button-bar"><a class="link-button" href="#ENTITIES">previous</a> <a class="link-button" href="#OBJECTS">next</a> <a class="link-button" href="#section-links">top<a/></div>
+<div class="dxf-entities">
+<div class="dxf-entity"><div class="dxf-entity-name"><a class="dxf-ref-link" href=http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-40B92C63-26F0-485B-A9C2-B349099B26D0 target="_blank" title="Link to DXF-Reference provided by Autodesk®.">DICTIONARY</a></div>
+<div class="ref-yes"> referenced by: <a class="tag-link" href="#1A">1A</a></div> <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">DICTIONARY</span></div></div>
+<div class="dxf-tag"><span id="C" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#C</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbDictionary</span></div></div>
+<div class="dxf-tag" ><span class="tag-code">3</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">ACAD_GROUP</span></div>
+<div class="dxf-tag"><span class="tag-code">350</span> <span class="var-type">&lt;hex&gt;</span> <a class="tag-link" href="#D">#D</a></div>
+<div class="dxf-tag" ><span class="tag-code">3</span> <span class="var-type">&lt;str&gt;</span> <span class="tag-value">ACAD_MLINESTYLE</span></div>
+<div class="dxf-tag"><span class="tag-code">350</span> <span class="var-type">&lt;hex&gt;</span> <a class="tag-link" href="#17">#17</a></div>
+</div>
+</div>
+<div class="dxf-entity"><div class="dxf-entity-name"><a class="dxf-ref-link" href=http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-40B92C63-26F0-485B-A9C2-B349099B26D0 target="_blank" title="Link to DXF-Reference provided by Autodesk®.">DICTIONARY</a></div>
+<div class="ref-yes"> referenced by: <a class="tag-link" href="#C">C</a></div> <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">DICTIONARY</span></div></div>
+<div class="dxf-tag"><span id="D" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#D</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbDictionary</span></div></div>
+</div>
+</div>
+<div class="dxf-entity"><div class="dxf-entity-name"><a class="dxf-ref-link" href=http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-40B92C63-26F0-485B-A9C2-B349099B26D0 target="_blank" title="Link to DXF-Reference provided by Autodesk®.">DICTIONARY</a></div>
+<div class="ref-no">[unreferenced]</div> <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">DICTIONARY</span></div></div>
+<div class="dxf-tag"><span id="1A" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#1A</span></div>
+<div class="dxf-tag"><span class="tag-code">330</span> <span class="var-type">&lt;hex&gt;</span> <a class="tag-link" href="#C">#C</a></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbDictionary</span></div></div>
+</div>
+</div>
+<div class="dxf-entity"><div class="dxf-entity-name"><a class="dxf-ref-link" href=http://help.autodesk.com/view/OARX/2018/ENU/?guid=GUID-40B92C63-26F0-485B-A9C2-B349099B26D0 target="_blank" title="Link to DXF-Reference provided by Autodesk®.">DICTIONARY</a></div>
+<div class="ref-yes"> referenced by: <a class="tag-link" href="#C">C</a></div> <div class="dxf-tags">
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">0</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">DICTIONARY</span></div></div>
+<div class="dxf-tag"><span id="17" class="tag-code">5</span> <span class="var-type">&lt;hex&gt;</span> <span class="tag-value">#17</span></div>
+<div class="tag-group-marker"><div class="dxf-tag" ><span class="tag-code">100</span> <span class="var-type">&lt;ctrl&gt;</span> <span class="tag-value">AcDbDictionary</span></div></div>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+</div>
+</body>
+
